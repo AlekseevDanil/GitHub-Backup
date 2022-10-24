@@ -3,7 +3,7 @@
 ## Overwiev
 The script that is in this repository helps to backup all your *gists* and *repositories*, as well as all the branches in them with just one command!
 
-The [GitHub API](https://docs.github.com/en/rest) technology is used to interact with the account, and the standard libraries [python](https://www.python.org)>=3.8
+The [GitHub API](https://docs.github.com/en/rest) technology is used to interact with the account, and the standard libraries [python](https://www.python.org)>=3.8. All data is saved in a zip archive, which is then conveniently uploaded to the cloud.
 
 ## Quickstart
 To work with the code, you will need a [GitHub developer token](https://github.com/settings/tokens).\
