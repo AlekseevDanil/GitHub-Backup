@@ -30,7 +30,20 @@ class GitHub:
             "Authorization": f"Bearer {self.args.token}"
         }
 
-        if not self.args.quiet: print("\n\n🚀🚀🚀🚀\n\n")
+        logging.info(
+            "\n\n\t🚀🚀🚀🚀\n\tThe project was created by AlekseevDanil\n\tThanks for using!\n\t🚀🚀🚀🚀\n\n"
+        )
+
+    def check_oauth(self):
+        # validation of the token and user information
+        user_request = requests.get(
+            url=self.url+"user",
+            headers=self.headers
+        ).json()
+        if not "login" in user_request:
+            logging.critical("Check if the token is correct, the user could not be determined.")
+        else:
+            return True
     
     def backup(self) -> None:
         # get all user information
@@ -39,7 +52,7 @@ class GitHub:
             headers=self.headers
         ).json()
         username = user_request["login"]
-        print(f"GitHub user: {username}")
+        logging.info(f"GitHub user: {username}")
 
         # get information about repositories + all branches in the repository
         repositories_request = requests.get(
@@ -54,7 +67,7 @@ class GitHub:
             ).json()
             for branch in branches_request:
                 repositories[rep_name['name']].append(branch["name"])
-        print(f"Total number of repositories: {len(repositories)}")
+        logging.info(f"Total number of repositories: {len(repositories)}")
 
         # all information about the user's gists
         gists_request = requests.get(
@@ -62,7 +75,7 @@ class GitHub:
             headers=self.headers
         ).json()
         gists = {url["html_url"].split("/")[-1]: list(url["files"].items())[0][0] for url in gists_request}
-        print(f"Total number of gists: {len(gists)}\n")
+        logging.info(f"Total number of gists: {len(gists)}\n")
 
         # create directories for backup
         main_path = f"{self.save_path}/GitHub-{username}-{str(datetime.now()).replace(' ', 'T')}"
@@ -73,18 +86,18 @@ class GitHub:
         def download_content(url: str, message: str):
             for _ in range(5):
                 try:
-                    print(message)
+                    logging.debug(message)
                     return requests.get(url=url, headers=self.headers)
                 except ConnectTimeout:
-                    print("Connection refused by the server. Reconnect after 10 seconds.")
+                    logging.error("Connection refused by the server. Reconnect after 10 seconds.")
                     time.sleep(10)
                     continue
 
         # download repositories
-        print(f"Downloading all user's repositories...")
+        logging.debug(f"Downloading all user's repositories...")
         for index, rep_name in enumerate(repositories):
             for branch in repositories[rep_name]:
-                req = slef.download_content(
+                req = download_content(
                     url=self.url+f"repos/{username}/{rep_name}/zipball/{branch}",
                     message=f"{index+1}/{len(repositories)} - Repository download - \"{rep_name}/{branch}\""
                 )
@@ -94,12 +107,12 @@ class GitHub:
                     with open(f'{main_path}/repositories/{rep_name}/{branch.replace("/", "-")}.zip', 'wb') as files_path:
                         files_path.write(req.content)
                 else:
-                    print(f"Failed to reach the repository: {rep_name}. Status: {req.status_code}")
+                    logging.error(f"Failed to reach the repository: {rep_name}. Status: {req.status_code}")
 
         # download gists
-        print(f"Downloading all user's gists...")
+        logging.debug(f"Downloading all user's gists...")
         for index, gist_id in enumerate(gists):
-            req = slef.download_content(
+            req = download_content(
                     url=self.url+f"gists/{gist_id}",
                     message=f"{index+1}/{len(gists)} - Gist download - \"{gists[gist_id]}\""
                 )
@@ -107,7 +120,7 @@ class GitHub:
                 with open(main_path+"/gists/"+gists[gist_id], "w") as files_path:
                     files_path.write(req.json()["files"][gists[gist_id]]["content"])
             else:
-                print(f"Failed to reach the gist: {gists['gists_id']}. Status: {req.status_code}")
+                logging.error(f"Failed to reach the gist: {gists['gists_id']}. Status: {req.status_code}")
 
         # archiving backups
         zf = zipfile.ZipFile(f"{main_path}.zip", "w")
@@ -118,16 +131,10 @@ class GitHub:
         zf.close()
         shutil.rmtree(main_path)
 
-        print(f"✅ Backup completed successfully. The result is saved in  {main_path}.zip")
+        logging.debug(f"✅ Backup completed successfully. The result is saved in  {main_path}.zip")
 
 
 if __name__ == "__main__":
-    # script logging configuration
-    logging.basicConfig(
-        format='%(name)s - %(levelname)s - %(message)s',
-        level=logging.INFO
-    )
-
     # geting options from command line
     parser = ArgumentParser(description='Add description letter')
     optional = parser.add_argument_group('optional arguments')
@@ -148,6 +155,14 @@ if __name__ == "__main__":
                           required=True)
     args = parser.parse_args()
 
+    # script logging configuration
+    logging.basicConfig(
+        format='%(asctime)s : [%(levelname)s] %(message)s',
+        level=10 if not args.quiet else 50
+    )
+    logging.getLogger("urllib3").setLevel('ERROR')
+
     # making a GitHub Backup
     gh = GitHub(args=args)
-    gh.backup()
+    if gh.check_oauth():
+        gh.backup()
