@@ -53,6 +53,8 @@ class GitHub:
         ).json()
         username = user_request["login"]
         logging.info(f"GitHub user: {username}")
+        
+        logging.debug(f"Loading information, please wait for the full load...")
 
         # get information about repositories + all branches in the repository
         repositories_request = requests.get(
@@ -78,10 +80,12 @@ class GitHub:
         logging.info(f"Total number of gists: {len(gists)}\n")
 
         # create directories for backup
-        main_path = f"{self.save_path}/GitHub-{username}-{str(datetime.now()).replace(' ', 'T')}"
+        main_path = f"{self.save_path}/GitHub-{username}-"\
+                    f"{str(datetime.now()).replace(' ', 'T').replace('-', '.').replace(':', '-')}"
         os.mkdir(main_path)
         os.mkdir(main_path+"/repositories/")
         os.mkdir(main_path+"/gists/")
+        main_path = os.path.realpath(main_path)
 
         def download_content(url: str, message: str):
             for _ in range(5):
@@ -123,13 +127,8 @@ class GitHub:
                 logging.error(f"Failed to reach the gist: {gists['gists_id']}. Status: {req.status_code}")
 
         # archiving backups
-        zf = zipfile.ZipFile(f"{main_path}.zip", "w")
-        for dirname, subdirs, files in os.walk(main_path):
-            zf.write(dirname)
-            for filename in files:
-                zf.write(os.path.join(dirname, filename))
-        zf.close()
-        shutil.rmtree(main_path)
+        shutil.make_archive(base_name=main_path, format="zip", root_dir=main_path)
+        shutil.rmtree(path=main_path)
 
         logging.debug(f"✅ Backup completed successfully. The result is saved in  {main_path}.zip")
 
